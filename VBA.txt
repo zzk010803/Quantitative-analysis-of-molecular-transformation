@@ -1,0 +1,106 @@
+Sub Count_DOM_Reactions_Sankey()
+
+    Dim ws1 As Worksheet, ws2 As Worksheet
+    Dim lastRow As Long
+    Dim i As Long
+    Dim sourceType As String, targetType As String
+    Dim key As String
+    Dim dictClass As Object, dictElem As Object
+    Set dictClass = CreateObject("Scripting.Dictionary")
+    Set dictElem = CreateObject("Scripting.Dictionary")
+    
+    ' 更稳妥地引用工作表
+    On Error Resume Next
+    Set ws1 = ThisWorkbook.Sheets("H2")        ' 调整表名称
+    If ws1 Is Nothing Then
+        MsgBox "找不到 Sheet1，请确认表名是否正确。", vbCritical
+        Exit Sub
+    End If
+    On Error GoTo 0
+
+    ' Sheet2 初始化
+    On Error Resume Next
+    Set ws2 = ThisWorkbook.Sheets("H2-sankey")       ' 调整表名称
+    If ws2 Is Nothing Then
+        Set ws2 = ThisWorkbook.Sheets.Add(After:=ws1)
+        ws2.Name = "H2-sankey"            ' 调整表名称
+    Else
+        ws2.Cells.ClearContents
+    End If
+    On Error GoTo 0
+
+    ' 获取行数
+    lastRow = ws1.Cells(ws1.Rows.Count, "A").End(xlUp).Row
+
+   ' === 第一部分：统计 G → H（化合物类别） ===
+    For i = 2 To lastRow
+        sourceType = Trim(ws1.Cells(i, 7).Value) ' G列
+        targetType = Trim(ws1.Cells(i, 8).Value) ' H列
+        If sourceType <> "" And targetType <> "" Then
+            key = sourceType & "→" & targetType
+            If dictClass.exists(key) Then
+                dictClass(key) = dictClass(key) + 1
+            Else
+                dictClass.Add key, 1
+            End If
+        End If
+    Next i
+
+    ' === 第二部分：统计 E → F（元素组成） ===
+    For i = 2 To lastRow
+        sourceType = Trim(ws1.Cells(i, 5).Value) ' E列
+        targetType = Trim(ws1.Cells(i, 6).Value) ' F列
+        If sourceType <> "" And targetType <> "" Then
+            key = sourceType & "→" & targetType
+            If dictElem.exists(key) Then
+                dictElem(key) = dictElem(key) + 1
+            Else
+                dictElem.Add key, 1
+            End If
+        End If
+    Next i
+
+    ' 输出表头
+    ws2.Cells(1, 1).Value = "source"
+    ws2.Cells(1, 2).Value = "target"
+    ws2.Cells(1, 3).Value = "value"
+    ws2.Cells(1, 5).Value = "source"
+    ws2.Cells(1, 6).Value = "target"
+    ws2.Cells(1, 7).Value = "value"
+
+    ' 输出化合物类别 Sankey 数据（第1-3列）
+    Dim rowClass As Long: rowClass = 2
+    Dim k As Variant, arr As Variant
+    For Each k In dictClass.Keys
+        If InStr(k, "→") > 0 Then
+            arr = Split(k, "→")
+            If UBound(arr) = 1 Then
+                ws2.Cells(rowClass, 1).Value = arr(0)
+                ws2.Cells(rowClass, 2).Value = arr(1)
+                ws2.Cells(rowClass, 3).Value = dictClass(k)
+                rowClass = rowClass + 1
+            End If
+        End If
+    Next k
+
+    ' 输出元素组合 Sankey 数据（第5-7列）
+    Dim rowElem As Long: rowElem = 2
+    For Each k In dictElem.Keys
+        If InStr(k, "→") > 0 Then
+            arr = Split(k, "→")
+            If UBound(arr) = 1 Then
+                ws2.Cells(rowElem, 5).Value = arr(0)
+                ws2.Cells(rowElem, 6).Value = arr(1)
+                ws2.Cells(rowElem, 7).Value = dictElem(k)
+                rowElem = rowElem + 1
+            End If
+        End If
+    Next k
+
+    MsgBox "已输出两类 Sankey 数据：" & vbCrLf & _
+           "- 化合物类别：" & dictClass.Count & " 个路径" & vbCrLf & _
+           "- 元素组合：" & dictElem.Count & " 个路径", vbInformation
+
+End Sub
+
+
